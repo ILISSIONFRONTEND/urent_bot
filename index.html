@@ -6,29 +6,37 @@
     <title>Urent Control</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { background: #0F0F12; color: white; -webkit-tap-highlight-color: transparent; }
-        .purple-gradient { background: linear-gradient(135deg, #6D28D9 0%, #4C1D95 100%); }
-        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .battery-fill { transition: width 1s ease-in-out; }
+        body { 
+            background: #F2F2F7; /* Классический фон iOS/приложений */
+            color: #1C1C1E; 
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent; 
+        }
+        .urent-purple { color: #8C3BFF; }
+        .bg-urent-purple { background-color: #8C3BFF; }
     </style>
 </head>
 <body class="p-4">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-black italic tracking-tighter">URENT <span class="text-purple-500">MONITOR</span></h1>
-        <div id="status-dot" class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]"></div>
+    <div class="flex justify-between items-center mb-6 pt-2">
+        <h1 class="text-3xl font-extrabold tracking-tight">Самокаты</h1>
+        <div class="w-8 h-8 rounded-full bg-urent-purple flex items-center justify-center shadow-[0_2px_10px_rgba(140,59,255,0.4)]">
+            <span class="text-white text-xs">⚡️</span>
+        </div>
     </div>
 
-    <div id="scooter-list" class="space-y-4">
+    <div id="scooter-list" class="space-y-0">
         <div class="animate-pulse flex flex-col space-y-4">
-            <div class="h-32 glass rounded-3xl w-full"></div>
+            <div class="h-36 bg-white rounded-[28px] w-full shadow-[0_4px_20px_rgba(0,0,0,0.03)]"></div>
         </div>
     </div>
 
     <script>
+        // ТЕХНИЧЕСКАЯ ЧАСТЬ - БЕЗ ИЗМЕНЕНИЙ
         const tg = window.Telegram.WebApp;
         tg.expand();
-        tg.setHeaderColor('#0F0F12');
+        tg.setHeaderColor('#F2F2F7'); // Только цвет хедера изменил под новый светлый фон
 
         // Парсим данные из URL (которые пришлет бот)
         const urlParams = new URLSearchParams(window.location.search);
@@ -37,7 +45,7 @@
         function render() {
             const list = document.getElementById('scooter-list');
             if (!rawData) {
-                list.innerHTML = `<div class="text-center opacity-50 mt-10">Данные не переданы.<br>Запусти через бота!</div>`;
+                list.innerHTML = `<div class="text-center text-[#8E8E93] mt-10 font-medium">Данные не переданы.<br>Запусти через бота!</div>`;
                 return;
             }
 
@@ -46,34 +54,41 @@
 
             scooters.forEach(s => {
                 const isLow = s.pct < 20;
-                const batteryColor = isLow ? 'bg-red-500' : (s.pct < 50 ? 'bg-yellow-500' : 'bg-green-500');
+                // Цвета батареи как в iOS/Юрент
+                const batteryColor = isLow ? 'bg-[#FF3B30]' : (s.pct < 50 ? 'bg-[#FFCC00]' : 'bg-[#34C759]');
+                const textColor = isLow ? 'text-[#FF3B30]' : (s.pct < 50 ? 'text-[#FFCC00]' : 'text-[#34C759]');
                 
+                // Новый дизайн карточки
                 list.innerHTML += `
-                    <div class="glass rounded-[24px] p-5 relative overflow-hidden active:scale-[0.98] transition-transform" 
+                    <div class="bg-white rounded-[28px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.04)] relative overflow-hidden active:scale-[0.98] transition-transform mb-4" 
                          onclick="Telegram.WebApp.HapticFeedback.impactOccurred('medium')">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <div class="text-xs opacity-50 uppercase font-bold tracking-widest mb-1">ID Объекта</div>
-                                <div class="text-xl font-mono font-black">#${s.id}</div>
+                        
+                        <div class="flex justify-between items-center mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-full bg-[#F4F4F5] flex items-center justify-center text-2xl">
+                                    🛴
+                                </div>
+                                <div>
+                                    <div class="text-[16px] font-bold text-[#1C1C1E] leading-tight">Юрент</div>
+                                    <div class="text-[13px] font-semibold text-[#8E8E93] uppercase mt-0.5">${s.id}</div>
+                                </div>
                             </div>
-                            <div class="purple-gradient p-2 rounded-xl">
-                                🛴
-                            </div>
-                        </div>
-
-                        <div class="space-y-2">
-                            <div class="flex justify-between text-sm font-bold">
-                                <span>Заряд батареи</span>
-                                <span class="${isLow ? 'text-red-500 animate-pulse' : ''}">${s.pct}%</span>
-                            </div>
-                            <div class="w-full h-3 bg-white/10 rounded-full overflow-hidden">
-                                <div class="battery-fill h-full ${batteryColor}" style="width: ${s.pct}%"></div>
+                            <div class="flex flex-col items-end">
+                                <div class="text-[18px] font-bold ${textColor}">${s.pct}%</div>
                             </div>
                         </div>
 
-                        <div class="mt-4 flex justify-between items-center border-t border-white/10 pt-4">
-                            <div class="text-sm opacity-70">🛣 Запас хода: <b>${s.dist} км</b></div>
-                            <button class="text-xs font-black text-purple-400 uppercase tracking-tighter">Найти на карте →</button>
+                        <div class="w-full h-2.5 bg-[#F4F4F5] rounded-full overflow-hidden mb-5">
+                            <div class="h-full rounded-full transition-all duration-1000 ${batteryColor}" style="width: ${s.pct}%"></div>
+                        </div>
+
+                        <div class="flex justify-between items-center bg-[#F4F4F5] rounded-[18px] p-3">
+                            <div class="text-[14px] font-semibold text-[#1C1C1E] flex items-center gap-1.5">
+                                <span class="text-[16px]">🛣</span> ~ ${s.dist} км
+                            </div>
+                            <div class="text-[14px] font-bold urent-purple bg-white px-4 py-1.5 rounded-full shadow-sm">
+                                На карте
+                            </div>
                         </div>
                     </div>
                 `;
