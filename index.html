@@ -3,88 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Urent Control</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Urent Radar Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background: #0F0F12; color: white; -webkit-tap-highlight-color: transparent; }
-        .purple-gradient { background: linear-gradient(135deg, #6D28D9 0%, #4C1D95 100%); }
-        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .battery-fill { transition: width 1s ease-in-out; }
+        /* Кастомный скроллбар и анимации */
+        body { -webkit-tap-highlight-color: transparent; }
+        .glass-panel {
+            background: rgba(30, 10, 45, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            box-shadow: 0 4px 30px rgba(168, 85, 247, 0.15);
+        }
+        .neon-text { text-shadow: 0 0 10px rgba(168, 85, 247, 0.8); }
+        .tab-btn.active { color: #d8b4fe; text-shadow: 0 0 15px #a855f7; }
+        .tab-btn { color: #6b7280; transition: all 0.3s ease; }
     </style>
 </head>
-<body class="p-4">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-black italic tracking-tighter">URENT <span class="text-purple-500">MONITOR</span></h1>
-        <div id="status-dot" class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]"></div>
-    </div>
+<body class="bg-[#0b0510] text-white min-h-screen font-sans pb-24">
 
-    <div id="scooter-list" class="space-y-4">
-        <div class="animate-pulse flex flex-col space-y-4">
-            <div class="h-32 glass rounded-3xl w-full"></div>
+    <header class="pt-10 pb-4 px-6 fixed top-0 w-full z-40 bg-gradient-to-b from-[#0b0510] to-transparent">
+        <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-fuchsia-600 neon-text" id="header-title">
+            РАДАР 🛴
+        </h1>
+    </header>
+
+    <main class="pt-24 px-4 relative z-10">
+        
+        <div id="tab-scooters" class="space-y-4">
+            <div id="loading" class="text-center text-purple-400 font-medium animate-pulse mt-10">
+                <i class="fa-solid fa-satellite-dish mr-2"></i>Связь со спутником...
+            </div>
+            <div id="scooters-container" class="grid gap-4"></div>
         </div>
-    </div>
+
+        <div id="tab-settings" class="hidden space-y-6 mt-4">
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden">
+                <div class="absolute -right-10 -top-10 w-32 h-32 bg-purple-600 rounded-full mix-blend-screen filter blur-3xl opacity-30"></div>
+                
+                <h2 class="text-xl font-bold mb-2 flex items-center text-purple-200">
+                    <i class="fa-solid fa-key text-purple-500 mr-3"></i> API Токен
+                </h2>
+                <p class="text-xs text-gray-400 mb-4">Вставь свежий Bearer Token из приложения, чтобы обновить доступ к серверам Юрент.</p>
+                
+                <textarea id="token-input" rows="4" 
+                    class="w-full bg-black/50 border border-purple-500/50 rounded-xl p-3 text-sm text-purple-100 placeholder-purple-800 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all mb-4"
+                    placeholder="eyJhbGciOiJIUzI1Ni..."></textarea>
+                
+                <button onclick="updateToken()" id="save-btn" class="w-full bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-bold py-3 rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.4)] active:scale-95 transition-all flex justify-center items-center">
+                    <i class="fa-solid fa-cloud-arrow-up mr-2"></i> ОБНОВИТЬ ТОКЕН
+                </button>
+                <div id="token-status" class="text-center text-sm mt-3 hidden font-medium"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <nav class="fixed bottom-0 w-full glass-panel rounded-t-3xl pb-safe pt-2 px-6 z-50">
+        <div class="flex justify-around items-center mb-2">
+            <button onclick="switchTab('scooters')" id="btn-scooters" class="tab-btn active flex flex-col items-center p-2 w-20">
+                <i class="fa-solid fa-location-crosshairs text-2xl mb-1"></i>
+                <span class="text-[10px] font-bold uppercase tracking-wider">Радар</span>
+            </button>
+            <button onclick="switchTab('settings')" id="btn-settings" class="tab-btn flex flex-col items-center p-2 w-20">
+                <i class="fa-solid fa-gear text-2xl mb-1"></i>
+                <span class="text-[10px] font-bold uppercase tracking-wider">Настройки</span>
+            </button>
+        </div>
+    </nav>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-        tg.setHeaderColor('#0F0F12');
+        // ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК
+        function switchTab(tab) {
+            document.getElementById('tab-scooters').classList.add('hidden');
+            document.getElementById('tab-settings').classList.add('hidden');
+            document.getElementById('btn-scooters').classList.remove('active');
+            document.getElementById('btn-settings').classList.remove('active');
 
-        // Парсим данные из URL (которые пришлет бот)
-        const urlParams = new URLSearchParams(window.location.search);
-        const rawData = urlParams.get('data');
-        
-        function render() {
-            const list = document.getElementById('scooter-list');
-            if (!rawData) {
-                list.innerHTML = `<div class="text-center opacity-50 mt-10">Данные не переданы.<br>Запусти через бота!</div>`;
+            if(tab === 'scooters') {
+                document.getElementById('tab-scooters').classList.remove('hidden');
+                document.getElementById('btn-scooters').classList.add('active');
+                document.getElementById('header-title').innerText = 'РАДАР 🛴';
+                fetchScooters(); // Обновляем при переходе
+            } else {
+                document.getElementById('tab-settings').classList.remove('hidden');
+                document.getElementById('btn-settings').classList.add('active');
+                document.getElementById('header-title').innerText = 'НАСТРОЙКИ ⚙️';
+            }
+        }
+
+        // ЛОГИКА ОБНОВЛЕНИЯ ТОКЕНА
+        async function updateToken() {
+            const input = document.getElementById('token-input').value.trim();
+            const statusDiv = document.getElementById('token-status');
+            const btn = document.getElementById('save-btn');
+            
+            if(!input) {
+                statusDiv.innerHTML = '<span class="text-red-400">Введи токен!</span>';
+                statusDiv.classList.remove('hidden');
                 return;
             }
 
-            const scooters = JSON.parse(decodeURIComponent(rawData));
-            list.innerHTML = '';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> ЗАГРУЗКА...';
+            btn.classList.add('opacity-70');
 
-            scooters.forEach(s => {
-                const isLow = s.pct < 20;
-                const batteryColor = isLow ? 'bg-red-500' : (s.pct < 50 ? 'bg-yellow-500' : 'bg-green-500');
+            try {
+                const response = await fetch('/api/update_token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: input })
+                });
                 
-                list.innerHTML += `
-                    <div class="glass rounded-[24px] p-5 relative overflow-hidden active:scale-[0.98] transition-transform" 
-                         onclick="Telegram.WebApp.HapticFeedback.impactOccurred('medium')">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <div class="text-xs opacity-50 uppercase font-bold tracking-widest mb-1">ID Объекта</div>
-                                <div class="text-xl font-mono font-black">#${s.id}</div>
-                            </div>
-                            <div class="purple-gradient p-2 rounded-xl">
-                                🛴
-                            </div>
-                        </div>
-
-                        <div class="space-y-2">
-                            <div class="flex justify-between text-sm font-bold">
-                                <span>Заряд батареи</span>
-                                <span class="${isLow ? 'text-red-500 animate-pulse' : ''}">${s.pct}%</span>
-                            </div>
-                            <div class="w-full h-3 bg-white/10 rounded-full overflow-hidden">
-                                <div class="battery-fill h-full ${batteryColor}" style="width: ${s.pct}%"></div>
-                            </div>
-                        </div>
-
-                        <div class="mt-4 flex justify-between items-center border-t border-white/10 pt-4">
-                            <div class="text-sm opacity-70">🛣 Запас хода: <b>${s.dist} км</b></div>
-                            <button class="text-xs font-black text-purple-400 uppercase tracking-tighter">Найти на карте →</button>
-                        </div>
-                    </div>
-                `;
-            });
+                const result = await response.json();
+                
+                if(result.status === 'success') {
+                    statusDiv.innerHTML = '<span class="text-green-400"><i class="fa-solid fa-check mr-1"></i> Токен успешно обновлен!</span>';
+                    document.getElementById('token-input').value = ''; // Очищаем поле
+                } else {
+                    statusDiv.innerHTML = `<span class="text-red-400">Ошибка: ${result.message}</span>`;
+                }
+            } catch(e) {
+                statusDiv.innerHTML = '<span class="text-red-400">Ошибка соединения с сервером</span>';
+            }
+            
+            statusDiv.classList.remove('hidden');
+            btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up mr-2"></i> ОБНОВИТЬ ТОКЕН';
+            btn.classList.remove('opacity-70');
+            
+            // Прячем сообщение через 3 секунды
+            setTimeout(() => statusDiv.classList.add('hidden'), 3000);
         }
 
-        render();
-        tg.MainButton.setText("ОБНОВИТЬ ПАРК").show().onClick(() => {
-            tg.HapticFeedback.notificationOccurred('success');
-            location.reload();
-        });
+        // ЛОГИКА ЗАГРУЗКИ И СОРТИРОВКИ САМОКАТОВ
+        async function fetchScooters() {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                const response = await fetch('/api/data');
+                let data = await response.json();
+                
+                const container = document.getElementById('scooters-container');
+                container.innerHTML = '';
+                document.getElementById('loading').style.display = 'none';
+
+                if (data.length === 0) {
+                    container.innerHTML = `
+                        <div class="glass-panel rounded-2xl p-6 text-center text-gray-400 mt-10">
+                            <i class="fa-solid fa-ghost text-4xl mb-3 text-purple-500/50"></i>
+                            <p>Нет доступных объектов или токен сдох.</p>
+                            <button onclick="switchTab('settings')" class="mt-4 text-purple-400 underline text-sm">Обновить токен</button>
+                        </div>`;
+                    return;
+                }
+
+                // === СОРТИРОВКА: От большего заряда к меньшему ===
+                data.sort((a, b) => b.pct - a.pct);
+
+                data.forEach(item => {
+                    // Цвета прогресс-бара в зависимости от заряда
+                    let barColor = 'bg-gradient-to-r from-purple-500 to-fuchsia-500';
+                    let glow = 'shadow-[0_0_10px_#a855f7]';
+                    if (item.pct <= 20) {
+                        barColor = 'bg-gradient-to-r from-red-600 to-red-400';
+                        glow = 'shadow-[0_0_10px_#ef4444]';
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = "glass-panel rounded-2xl p-5 relative overflow-hidden transition-transform transform active:scale-[0.98]";
+                    card.innerHTML = `
+                        <div class="absolute -right-6 -top-6 text-6xl opacity-5 text-purple-300">
+                            <i class="fa-solid fa-bolt"></i>
+                        </div>
+                        <div class="flex justify-between items-center mb-3 relative z-10">
+                            <div class="flex items-center">
+                                <div class="bg-purple-900/50 p-2 rounded-lg border border-purple-500/30 mr-3">
+                                    <i class="fa-solid fa-hashtag text-purple-400 text-sm"></i>
+                                </div>
+                                <span class="text-xl font-bold tracking-wider text-purple-50">${item.id}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-2xl font-extrabold ${item.pct <= 20 ? 'text-red-400' : 'text-fuchsia-400'}">${item.pct}%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="w-full bg-black/40 rounded-full h-2.5 mb-3 border border-purple-500/20 relative z-10">
+                            <div class="${barColor} ${glow} h-2.5 rounded-full" style="width: ${item.pct}%"></div>
+                        </div>
+                        
+                        <div class="flex justify-between text-sm font-medium text-gray-400 relative z-10">
+                            <span><i class="fa-solid fa-route mr-1 text-purple-500"></i> ${item.dist} км хода</span>
+                            <span class="text-purple-300"><i class="fa-solid fa-battery-full mr-1"></i> Батарея</span>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Ошибка:', error);
+                document.getElementById('loading').innerHTML = '<span class="text-red-400"><i class="fa-solid fa-triangle-exclamation"></i> Ошибка загрузки</span>';
+            }
+        }
+
+        // Запуск при открытии
+        fetchScooters();
     </script>
 </body>
 </html>
